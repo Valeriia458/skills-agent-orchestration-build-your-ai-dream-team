@@ -1,0 +1,36 @@
+{
+  "projects": [
+    {
+      "name": "Contributor Onboarding",
+      "owner": "Maya Chen",
+      "status": "Active",
+      "recentActivity": "Published the first draft of the quick-start guide this week.",
+      "priority": "High",
+      "summary": "Help new contributors find their first task and get a local setup running with less guesswork."
+    },
+    {
+      "name": "Search Improvements",
+      "owner": "Jordan Lee",
+      "status": "At Risk",
+      "recentActivity": "Search relevance review is waiting on feedback from the support team.",
+      "priority": "Medium",
+      "summary": "Make it easier for people to find answers by improving result relevance and documenting common gaps."
+    },
+    {
+      "name": "Accessibility Review",
+      "owner": "Sam Rivera",
+      "status": "Planned",
+      "recentActivity": "Collected the first round of keyboard-navigation notes for the next sprint.",
+      "priority": "Critical",
+      "summary": "Identify and fix key accessibility barriers so more people can use the product confidently."
+    },
+    {
+      "name": "Release Readiness",
+      "owner": "Avery Patel",
+      "status": "Blocked",
+      "recentActivity": "The release checklist is ready; a dependency update is still pending.",
+      "priority": "High",
+      "summary": "Coordinate final checks, known issues, and clear release notes before the next team rollout."
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A concise pulse check on project status, ownership, activity, and priority.">
+    <title>Project Pulse</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="dashboard-header">
+        <div class="dashboard-heading">
+          <p class="dashboard-eyebrow">Team overview</p>
+          <h1 class="dashboard-title">Project Pulse</h1>
+          <p class="dashboard-description">
+            A quick, contributor-friendly view of what each team is working on and where help is needed.
+          </p>
+        </div>
+      </header>
+
+      <section class="dashboard-summary" aria-label="Project overview" id="project-summary" hidden>
+        <div class="summary-card">
+          <span class="summary-label">Projects</span>
+          <span class="summary-value" id="project-count">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Need attention</span>
+          <span class="summary-value" id="attention-count">0</span>
+        </div>
+      </section>
+
+      <section class="projects-section" aria-labelledby="projects-heading">
+        <header class="section-header">
+          <h2 class="section-title" id="projects-heading">Projects</h2>
+          <p class="section-caption">Status, ownership, and recent progress at a glance.</p>
+        </header>
+        <p class="loading-state" id="load-status" role="status" aria-live="polite">Loading project data…</p>
+        <div class="project-grid" id="project-list" aria-busy="true"></div>
+      </section>
+    </main>
+
+    <script>
+      const projectList = document.querySelector("#project-list");
+      const loadStatus = document.querySelector("#load-status");
+      const projectSummary = document.querySelector("#project-summary");
+      const projectCount = document.querySelector("#project-count");
+      const attentionCount = document.querySelector("#attention-count");
+      const requiredFields = ["name", "owner", "status", "recentActivity", "priority"];
+
+      function displayValue(value, fallback = "Not provided") {
+        return typeof value === "string" && value.trim() ? value.trim() : fallback;
+      }
+
+      function normalizedToken(value) {
+        return displayValue(value, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+      }
+
+      function addTextElement(parent, tagName, className, text) {
+        const element = document.createElement(tagName);
+        element.className = className;
+        element.textContent = text;
+        parent.append(element);
+        return element;
+      }
+
+      function renderProject(project, index) {
+        const card = document.createElement("article");
+        card.className = "project-card";
+        const headingId = `project-title-${index + 1}`;
+        card.setAttribute("aria-labelledby", headingId);
+
+        const header = document.createElement("header");
+        header.className = "project-card__header";
+        const title = addTextElement(header, "h3", "project-card__title", displayValue(project.name));
+        title.id = headingId;
+
+        const status = addTextElement(
+          header,
+          "span",
+          `status-badge${normalizedToken(project.status) ? ` status-${normalizedToken(project.status)}` : ""}`,
+          displayValue(project.status)
+        );
+        status.dataset.status = normalizedToken(project.status);
+        card.append(header);
+
+        addTextElement(card, "p", "project-card__summary", displayValue(project.summary, "A project summary has not been added yet."));
+
+        const metadata = document.createElement("div");
+        metadata.className = "project-card__meta";
+        const owner = addTextElement(metadata, "p", "project-owner", `Owner: ${displayValue(project.owner)}`);
+        owner.setAttribute("aria-label", `Owner: ${displayValue(project.owner)}`);
+        const priority = addTextElement(
+          metadata,
+          "span",
+          `priority-badge${normalizedToken(project.priority) ? ` priority-${normalizedToken(project.priority)}` : ""}`,
+          `Priority: ${displayValue(project.priority)}`
+        );
+        priority.dataset.priority = normalizedToken(project.priority);
+        card.append(metadata);
+
+        const activity = document.createElement("p");
+        activity.className = "project-activity";
+        addTextElement(activity, "span", "activity-label", "Recent activity");
+        activity.append(document.createTextNode(displayValue(project.recentActivity)));
+        card.append(activity);
+
+        return card;
+      }
+
+      function showMessage(message, className) {
+        projectList.replaceChildren();
+        loadStatus.className = className;
+        loadStatus.textContent = message;
+        loadStatus.hidden = false;
+        projectList.setAttribute("aria-busy", "false");
+        projectSummary.hidden = true;
+      }
+
+      async function loadProjects() {
+        loadStatus.className = "loading-state";
+        loadStatus.textContent = "Loading project data…";
+        loadStatus.hidden = false;
+        projectList.setAttribute("aria-busy", "true");
+
+        try {
+          const response = await fetch("project-data.json", { headers: { Accept: "application/json" } });
+          if (!response.ok) {
+            throw new Error(`The project data request failed (HTTP ${response.status}).`);
+          }
+
+          const data = await response.json();
+          if (!data || !Array.isArray(data.projects)) {
+            throw new Error("Project data must contain a top-level projects array.");
+          }
+
+          if (data.projects.length === 0) {
+            showMessage("No projects to show yet. Add a project to project-data.json to get started.", "empty-state");
+            return;
+          }
+
+          const attentionStatuses = new Set(["at-risk", "blocked"]);
+          const attentionPriorities = new Set(["high", "critical"]);
+          let needsAttention = 0;
+          const cards = data.projects.map((project, index) => {
+            const missingFields = requiredFields.filter((field) => !displayValue(project?.[field], ""));
+            if (missingFields.length) {
+              console.warn(`Project ${index + 1} is missing: ${missingFields.join(", ")}.`);
+            }
+            if (
+              attentionStatuses.has(normalizedToken(project?.status)) ||
+              attentionPriorities.has(normalizedToken(project?.priority))
+            ) {
+              needsAttention += 1;
+            }
+            return renderProject(project || {}, index);
+          });
+
+          projectList.replaceChildren(...cards);
+          projectList.setAttribute("aria-busy", "false");
+          loadStatus.hidden = true;
+          projectCount.textContent = String(cards.length);
+          attentionCount.textContent = String(needsAttention);
+          projectSummary.hidden = false;
+        } catch (error) {
+          console.error("Unable to load Project Pulse data.", error);
+          const hint = window.location.protocol === "file:"
+            ? " Open this page through the configured local HTTP server rather than as a file."
+            : "";
+          showMessage(`Could not load project data. ${error.message}${hint}`, "error-state");
+        }
+      }
+
+      loadProjects();
+    </script>
+  </body>
+</html>
